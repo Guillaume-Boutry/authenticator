@@ -1,0 +1,18 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: authenticator
+  namespace: default
+spec:
+  template:
+    spec:
+      containers:
+        - image: registry.zouzland.com/authenticator:0.0.4
+          name: authenticator
+          env:
+            - name: model_dir
+              value: /opt/authenticator
+            - name: K_SINK
+              value: http://data-controller.default
+      imagePullSecrets:
+        - name: regcred
