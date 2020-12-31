@@ -15,6 +15,6 @@ spec:
             - name: K_SINK
               value: http://data-controller.default
             - name: THRESHOLD
-              value: "0.15"
+              value: "0.25"
       imagePullSecrets:
         - name: regcred
