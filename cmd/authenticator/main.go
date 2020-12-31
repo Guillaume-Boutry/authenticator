@@ -38,6 +38,7 @@ type Receiver struct {
 	// If the K_SINK environment variable is set, then events are sent there,
 	// otherwise we simply reply to the inbound request.
 	Target string `envconfig:"K_SINK"`
+	Threshold float32 `envconfig:"THRESHOLD"`
 	// Channel to send work
 	jobChannel chan *work
 }
@@ -123,23 +124,25 @@ func (recv *Receiver) ReceiveAndReply(ctx context.Context, event cloudevents.Eve
 
 	authent := authenticator.NewAuthenticator(0)
 	defer authenticator.DeleteAuthenticator(authent)
-	score := authent.ComputeDistance(embeddings, embeddingsRef)
-
-	enrollResponse := &face_authenticator.AuthenticateResponse{
+	score := float32(authent.ComputeDistance(embeddings, embeddingsRef))
+	fmt.Printf("Score %f\n", score)
+	decision := score < recv.Threshold
+	authenticateResponse := &face_authenticator.AuthenticateResponse{
 		Status:   face_authenticator.AuthenticateStatus_AUTHENTICATE_STATUS_OK,
-		Message:  fmt.Sprintf("%s enrolled with sucess", authenticatRequest.FaceRequest.Id),
-		Score:    float32(score),
-		Decision: true,
+		Message:  fmt.Sprintf("%s authenticated with success", authenticatRequest.FaceRequest.Id),
+		Score:    score,
+		Decision: decision,
 	}
-	resp, err := proto.Marshal(enrollResponse)
+	resp, err := proto.Marshal(authenticateResponse)
 	if err != nil {
 		log.Println(err)
 		return nil, cloudevents.NewHTTPResult(500, "failed to serialize response")
 	}
 	r := cloudevents.NewEvent(cloudevents.VersionV1)
-	r.SetType("enroll-response")
-	r.SetSource("enroller")
-	if err := r.SetData("application/json", resp); err != nil {
+	r.SetType("authenticate-response")
+	r.SetSource("authenticator")
+	msg := Message{Payload: resp}
+	if err := r.SetData("application/json", msg); err != nil {
 		return nil, cloudevents.NewHTTPResult(500, "failed to set response data")
 	}
 
